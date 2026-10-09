@@ -1,0 +1,1 @@
+UPD 2026-10-09_14:52:33 20784 FHEM/74_SamsungTizenWS.pm
