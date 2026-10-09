@@ -7,7 +7,7 @@ FHEM module `SamsungTizenWS` for Samsung Smart TVs with **Tizen** (about 2016 an
 * Power state from the TV's REST info API (`on`, `standby`, `off`), power on through Wake-on-LAN, power off with `KEY_POWER`.
 * Non-blocking (HttpUtils/DevIo), reconnects by itself, back-off after a denied pairing.
 
-Not possible with the local API of these models: reading the volume as a number (only volume up/down keys).
+Not possible with the local API of these models: reading the volume as a number (only volume up/down keys). Older TVs (e.g. the 2018 Q7) do not send `ms.channel.ready`; the module works with both.
 
 ## Installation
 
@@ -40,7 +40,7 @@ If the TV does not show a dialog, check *Settings → General → External Devic
 
 ## Tests
 
-`python3 tests/run_tests.py [--fhem /opt/fhem]` starts a mock TV (`tests/mock_tv.py`: REST API, TLS WebSocket with token pairing, Wake-on-LAN listener) and a throw-away FHEM instance (own ports and directory; the production FHEM is only read) and checks pairing, keys, apps, power, Wake-on-LAN, standby, denied pairing and attributes (36 checks).
+`python3 tests/run_tests.py [--fhem /opt/fhem]` starts a mock TV (`tests/mock_tv.py`: REST API, TLS WebSocket with token pairing, Wake-on-LAN listener) and a throw-away FHEM instance (own ports and directory; the production FHEM is only read) and checks pairing, keys, apps, power, Wake-on-LAN, standby, denied pairing and attributes (38 checks).
 
 ## License
 

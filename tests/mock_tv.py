@@ -2,7 +2,7 @@
 """Mock of a Samsung Tizen TV for testing the FHEM module without a TV: REST info API (plain HTTP), the secure remote WebSocket
 (TLS, token pairing) and a Wake-on-LAN listener.
 Usage: mock_tv.py <tls-cert> <tls-key> [rest-port=18001] [ws-port=18002] [control-port=18003] [wol-port=19999]
-Control (127.0.0.1:<control-port>): /state, /power?on=1|0, /approve?mode=allow|deny, /powerstate?value=standby|on|none
+Control (127.0.0.1:<control-port>): /state, /power?on=1|0, /approve?mode=allow|deny, /powerstate?value=standby|on|none, /ready?on=1|0
 Only the Python standard library is used."""
 import base64, hashlib, json, socket, ssl, struct, sys, threading, time
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -17,7 +17,7 @@ GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 TV_MAC = "c0:48:e6:4e:97:ee"
 TOKEN = "TOK12345"
 
-S = {"power": True, "pair": "allow", "powerstate": "none", "keys": [], "launches": [], "posts": [], "wol": [], "connections": 0,
+S = {"ready": False, "power": True, "pair": "allow", "powerstate": "none", "keys": [], "launches": [], "posts": [], "wol": [], "connections": 0,
      "tokens_seen": [], "names_seen": []}
 clients = []
 lock = threading.Lock()
@@ -98,7 +98,8 @@ def ws_session(sock, path):
             time.sleep(0.2)
             return
     sock.sendall(frame(json.dumps({"event": "ms.channel.connect", "data": {"id": "1", "token": TOKEN, "clients": []}})))
-    sock.sendall(frame(json.dumps({"event": "ms.channel.ready"})))
+    if S["ready"]:                               # newer TVs send ms.channel.ready, the 2018 Q7 does not
+        sock.sendall(frame(json.dumps({"event": "ms.channel.ready"})))
     while True:
         op, data = recv_frame(sock)
         if op == 8:
@@ -194,6 +195,8 @@ class Ctl(BaseHTTPRequestHandler):
                 drop_clients()
         elif u.path == "/approve":
             S["pair"] = q.get("mode", "allow")
+        elif u.path == "/ready":
+            S["ready"] = q.get("on", "1") == "1"
         elif u.path == "/powerstate":
             S["powerstate"] = q.get("value", "none")
         elif u.path == "/state":

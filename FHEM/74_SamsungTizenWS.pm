@@ -150,7 +150,7 @@ sub SamsungTizenWS_PollDone {
   readingsBulkUpdateIfChanged($hash, 'presence', 'present');
   readingsBulkUpdateIfChanged($hash, 'power', $power);
   readingsBulkUpdateIfChanged($hash, 'modelName', $d->{modelName}) if (defined $d->{modelName});
-  readingsBulkUpdateIfChanged($hash, 'tvName', $d->{name}) if (defined $d->{name});
+  if (defined $d->{name}) { my $n = $d->{name}; utf8::encode($n) if (utf8::is_utf8($n)); readingsBulkUpdateIfChanged($hash, 'tvName', $n); }
   readingsBulkUpdateIfChanged($hash, 'resolution', $d->{resolution}) if (defined $d->{resolution});
   readingsBulkUpdateIfChanged($hash, 'os', $d->{OS}) if (defined $d->{OS});
   readingsBulkUpdateIfChanged($hash, 'wifiMac', $d->{wifiMac}) if (defined $d->{wifiMac});
@@ -274,13 +274,11 @@ sub SamsungTizenWS_Read {
     }
     readingsSingleUpdate($hash, 'tokenState', 'paired', 1);
     SamsungTizenWS_SetState($hash, 'connected');
+    SamsungTizenWS_Ready_($hash);                 # older Tizen TVs (e.g. 2018) never send ms.channel.ready: the connect event is enough
   }
   elsif ($ev eq 'ms.channel.ready') {
-    $hash->{helper}{ready} = 1;
     SamsungTizenWS_SetState($hash, 'connected');
-    my @q = @{ $hash->{helper}{queue} // [] };
-    $hash->{helper}{queue} = [];
-    SamsungTizenWS_Send($hash, $_) foreach (@q);
+    SamsungTizenWS_Ready_($hash);
   }
   elsif ($ev eq 'ms.channel.timeOut' || $ev eq 'ms.error' || $ev eq 'ms.channel.unauthorized') {
     Log3 $name, 2, "$name: TV refused the connection ($ev) - pairing denied or timed out";
@@ -292,7 +290,12 @@ sub SamsungTizenWS_Read {
   elsif ($ev eq 'ed.installedApp.get') {
     my $list = ref($dd->{data}) eq 'ARRAY' ? $dd->{data} : [];
     my %apps;
-    foreach my $a (@$list) { $apps{ $a->{name} } = $a->{appId} if (ref($a) eq 'HASH' && defined $a->{name} && defined $a->{appId}); }
+    foreach my $a (@$list) {
+      next if (ref($a) ne 'HASH' || !defined $a->{name} || !defined $a->{appId});
+      my $n = $a->{name};
+      utf8::encode($n) if (utf8::is_utf8($n));       # FHEM readings hold UTF-8 bytes (names may contain umlauts or special characters)
+      $apps{$n} = $a->{appId};
+    }
     $hash->{helper}{apps} = \%apps;
     readingsBeginUpdate($hash);
     readingsBulkUpdate($hash, 'appCount', scalar(keys %apps));
@@ -302,6 +305,15 @@ sub SamsungTizenWS_Read {
   else {
     Log3 $name, 4, "$name: ws event $ev";
   }
+}
+
+sub SamsungTizenWS_Ready_ {
+  my ($hash) = @_;
+  return if ($hash->{helper}{ready});
+  $hash->{helper}{ready} = 1;
+  my @q = @{ $hash->{helper}{queue} // [] };
+  $hash->{helper}{queue} = [];
+  SamsungTizenWS_Send($hash, $_) foreach (@q);
 }
 
 sub SamsungTizenWS_Send {

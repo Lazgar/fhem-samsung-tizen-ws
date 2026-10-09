@@ -217,6 +217,15 @@ def main():
         check("disable: state disabled and keys refused", wait(lambda: reading("tv", "state") == "disabled", 8) and "disabled" in fhem("set tv volumeUp"))
         fhem("attr tv disable 0")
         check("enable again: connected", wait(lambda: reading("tv", "state") == "connected", 20), reading("tv", "state"))
+        # --- TVs that send ms.channel.ready (newer models) work as well
+        ctl("ready", on=1)
+        fhem("attr tv disable 1")
+        time.sleep(1)
+        fhem("attr tv disable 0")
+        check("TV with ms.channel.ready: reconnects", wait(lambda: reading("tv", "state") == "connected", 20), reading("tv", "state"))
+        n = len(ctl("state")["keys"])
+        fhem("set tv mute")
+        check("TV with ms.channel.ready: key arrives", wait(lambda: len(ctl("state")["keys"]) > n and ctl("state")["keys"][-1]["key"] == "KEY_MUTE", 8))
     finally:
         try:
             fhem("shutdown")
